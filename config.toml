@@ -1,0 +1,5 @@
+
+[llm]
+provider = "Ollama"
+base_url = "http://localhost:11434"
+model = "codellama"
