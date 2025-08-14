@@ -31,9 +31,9 @@ cd project-examer
 cargo install --path .
 ```
 
-### Global Installation (Future)
+### Global Installation
 ```bash
-# Once published to crates.io
+# Install from crates.io
 cargo install project-examer
 ```
 
