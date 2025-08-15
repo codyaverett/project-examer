@@ -19,6 +19,7 @@ pub struct LLMConfig {
     pub model: String,
     pub max_tokens: usize,
     pub temperature: f32,
+    pub timeout_seconds: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +49,12 @@ impl Default for Config {
                 "build".to_string(),
                 "dist".to_string(),
                 "*.log".to_string(),
+                ".env".to_string(),
+                ".env.*".to_string(),
+                "*.min.js".to_string(),
+                "*.map".to_string(),
+                "test-*".to_string(),
+                "test_*".to_string(),
             ],
             file_extensions: vec![
                 "rs".to_string(),
@@ -61,6 +68,14 @@ impl Default for Config {
                 "cpp".to_string(),
                 "c".to_string(),
                 "h".to_string(),
+                "md".to_string(),
+                "txt".to_string(),
+                "toml".to_string(),
+                "yaml".to_string(),
+                "yml".to_string(),
+                "json".to_string(),
+                "html".to_string(),
+                "css".to_string(),
             ],
             max_file_size: 1024 * 1024, // 1MB
             llm: LLMConfig {
@@ -70,6 +85,7 @@ impl Default for Config {
                 model: "gpt-4".to_string(),
                 max_tokens: 4000,
                 temperature: 0.1,
+                timeout_seconds: 300,
             },
             analysis: AnalysisConfig {
                 include_dependencies: true,
@@ -194,6 +210,9 @@ max_tokens = 4000
 
 # Temperature for LLM responses (0.0 = deterministic, 1.0 = creative)
 temperature = 0.1
+
+# Request timeout in seconds (default: 300 seconds / 5 minutes)
+timeout_seconds = 300
 
 [analysis]
 # Include dependency analysis

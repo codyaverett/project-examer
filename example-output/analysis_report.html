@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Analysis Report - example-output</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .header { border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .section { margin: 30px 0; }
+        .metric { display: inline-block; margin: 10px 20px 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+        .recommendation { margin: 15px 0; padding: 15px; border-left: 4px solid #007acc; background: #f9f9f9; }
+        .priority-high { border-left-color: #ff6b6b; }
+        .priority-medium { border-left-color: #ffa500; }
+        .priority-low { border-left-color: #28a745; }
+        .insight { margin: 10px 0; padding: 10px; background: #e8f4f8; border-radius: 5px; }
+        .insight-title { font-weight: bold; color: #2c3e50; }
+        .insight-category { color: #7f8c8d; font-size: 0.9em; text-transform: uppercase; }
+        .evidence { margin: 5px 0; font-style: italic; color: #555; }
+        .llm-analysis { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+        .analysis-type { font-weight: bold; color: #495057; margin-bottom: 10px; }
+        .analysis-summary { margin: 10px 0; padding: 15px; background: #fff; border-radius: 5px; line-height: 1.6; }
+        .insights-table, .recommendations-table { margin: 15px 0; }
+        .insights-table th { background-color: #e3f2fd; }
+        .recommendations-table th { background-color: #f3e5f5; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .priority-high { background-color: #ffebee; }
+        .priority-medium { background-color: #fff3e0; }
+        .priority-low { background-color: #f1f8e9; }
+        .confidence-high { color: #2e7d32; font-weight: bold; }
+        .confidence-medium { color: #f57c00; font-weight: bold; }
+        .confidence-low { color: #d32f2f; font-weight: bold; }
+        ol { list-style-type: decimal; padding-left: 25px; margin: 10px 0; }
+        ul { list-style-type: disc; padding-left: 25px; margin: 10px 0; }
+        li { margin: 8px 0; line-height: 1.4; }
+        .analysis-summary ul { margin: 15px 0; }
+        .analysis-summary ol { margin: 15px 0; }
+        .analysis-summary li { margin: 6px 0; padding-left: 5px; }
+        .analysis-summary h4 { margin: 20px 0 10px 0; color: #2c3e50; }
+        .analysis-summary h3 { margin: 25px 0 15px 0; color: #34495e; }
+        .analysis-summary p { margin: 12px 0; line-height: 1.6; }
+    </style>
+    <script>
+        function parseJsonContent(jsonText) {
+            try {
+                const data = JSON.parse(jsonText);
+                let html = '';
+                
+                // Analysis summary
+                if (data.analysis) {
+                    html += `<div class="analysis-summary">${data.analysis}</div>`;
+                }
+                
+                // Insights table
+                if (data.insights && data.insights.length > 0) {
+                    html += `
+                    <h4>Key Insights</h4>
+                    <table class="insights-table">
+                        <thead>
+                            <tr>
+                                <th>Insight</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Confidence</th>
+                                <th>Evidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                    
+                    data.insights.forEach(insight => {
+                        const confidenceClass = insight.confidence >= 0.8 ? 'confidence-high' : 
+                                               insight.confidence >= 0.6 ? 'confidence-medium' : 'confidence-low';
+                        const evidence = insight.evidence && insight.evidence.length > 0 ? 
+                                        '• ' + insight.evidence.join('<br>• ') : 'No specific evidence';
+                        
+                        html += `
+                        <tr>
+                            <td><strong>${insight.title}</strong></td>
+                            <td>${insight.category}</td>
+                            <td>${insight.description}</td>
+                            <td class="${confidenceClass}">${Math.round(insight.confidence * 100)}%</td>
+                            <td>${evidence}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table>';
+                }
+                
+                // Recommendations table
+                if (data.recommendations && data.recommendations.length > 0) {
+                    html += `
+                    <h4>Recommendations</h4>
+                    <table class="recommendations-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Description</th>
+                                <th>Priority</th>
+                                <th>Effort</th>
+                                <th>Impact</th>
+                                <th>Action Items</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                    
+                    data.recommendations.forEach(rec => {
+                        const priorityClass = rec.priority === 'High' || rec.priority === 'Critical' ? 'priority-high' :
+                                             rec.priority === 'Medium' ? 'priority-medium' : 'priority-low';
+                        const actionItems = rec.action_items && rec.action_items.length > 0 ? 
+                                           '• ' + rec.action_items.join('<br>• ') : 'No specific actions';
+                        
+                        html += `
+                        <tr class="${priorityClass}">
+                            <td><strong>${rec.title}</strong></td>
+                            <td>${rec.description}</td>
+                            <td>${rec.priority}</td>
+                            <td>${rec.effort}</td>
+                            <td>${rec.impact}</td>
+                            <td>${actionItems}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table>';
+                }
+                
+                return html;
+            } catch (e) {
+                return `<p>Error parsing JSON content: ${e.message}</p>`;
+            }
+        }
+        
+        function parseMarkdownContent(markdown) {
+            let html = markdown;
+            
+            // Convert headers first
+            html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+            
+            // Convert bold text
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            
+            // Process line by line for better list handling
+            let lines = html.split('\n');
+            let processedLines = [];
+            let inUnorderedList = false;
+            let inOrderedList = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                let trimmedLine = line.trim();
+                
+                // Look ahead to see if there are more list items coming
+                function hasMoreListItems(startIndex, listType) {
+                    for (let j = startIndex + 1; j < lines.length; j++) {
+                        let nextTrimmed = lines[j].trim();
+                        if (nextTrimmed === '') continue; // Skip empty lines
+                        
+                        if (listType === 'ordered' && nextTrimmed.match(/^\d+\.\s+/)) {
+                            return true;
+                        }
+                        if (listType === 'unordered' && nextTrimmed.match(/^[-*]\s+/)) {
+                            return true;
+                        }
+                        
+                        // Stop looking if we hit a header or substantial content
+                        if (nextTrimmed.match(/^<h[1-6]>/) || 
+                            nextTrimmed.match(/^### /) || 
+                            nextTrimmed.match(/^## /) ||
+                            nextTrimmed.match(/^#### /) ||
+                            (nextTrimmed.length > 0 && !nextTrimmed.match(/^[-*\d]\s*/) && !nextTrimmed.match(/^\d+\.\s+/))) {
+                            break;
+                        }
+                    }
+                    return false;
+                }
+                
+                // Handle unordered list items
+                if (trimmedLine.match(/^[-*]\s+/)) {
+                    if (!inUnorderedList) {
+                        if (inOrderedList) {
+                            processedLines.push('</ol>');
+                            inOrderedList = false;
+                        }
+                        processedLines.push('<ul>');
+                        inUnorderedList = true;
+                    }
+                    let content = trimmedLine.replace(/^[-*]\s+/, '');
+                    processedLines.push(`<li>${content}</li>`);
+                    
+                    // Only close if no more unordered items are coming
+                    if (!hasMoreListItems(i, 'unordered')) {
+                        processedLines.push('</ul>');
+                        inUnorderedList = false;
+                    }
+                }
+                // Handle ordered list items (1. 2. 3. etc.)
+                else if (trimmedLine.match(/^\d+\.\s+/)) {
+                    if (!inOrderedList) {
+                        if (inUnorderedList) {
+                            processedLines.push('</ul>');
+                            inUnorderedList = false;
+                        }
+                        processedLines.push('<ol>');
+                        inOrderedList = true;
+                    }
+                    let content = trimmedLine.replace(/^\d+\.\s+/, '');
+                    processedLines.push(`<li>${content}</li>`);
+                    
+                    // Only close if no more ordered items are coming
+                    if (!hasMoreListItems(i, 'ordered')) {
+                        processedLines.push('</ol>');
+                        inOrderedList = false;
+                    }
+                }
+                // Handle regular content
+                else {
+                    // Close lists when we encounter headers or substantial content
+                    if (trimmedLine && (trimmedLine.startsWith('<h') || 
+                        trimmedLine.match(/^### /) || 
+                        trimmedLine.match(/^## /) ||
+                        trimmedLine.match(/^#### /))) {
+                        // Close any open lists when we hit headers
+                        if (inUnorderedList) {
+                            processedLines.push('</ul>');
+                            inUnorderedList = false;
+                        }
+                        if (inOrderedList) {
+                            processedLines.push('</ol>');
+                            inOrderedList = false;
+                        }
+                        processedLines.push(line);
+                    } else if (trimmedLine && !trimmedLine.startsWith('<ul') && !trimmedLine.startsWith('<ol') && !trimmedLine.startsWith('</')) {
+                        // Close lists for substantial paragraph content
+                        if (inUnorderedList) {
+                            processedLines.push('</ul>');
+                            inUnorderedList = false;
+                        }
+                        if (inOrderedList) {
+                            processedLines.push('</ol>');
+                            inOrderedList = false;
+                        }
+                        processedLines.push(`<p>${line}</p>`);
+                    } else {
+                        // Empty lines and HTML elements - keep them without closing lists
+                        processedLines.push(line);
+                    }
+                }
+            }
+            
+            // Close any remaining open lists
+            if (inUnorderedList) {
+                processedLines.push('</ul>');
+            }
+            if (inOrderedList) {
+                processedLines.push('</ol>');
+            }
+            
+            return processedLines.join('\n');
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Process JSON content in any element that contains JSON
+            function processElementForJson(element) {
+                const text = element.textContent || element.innerText;
+                if (text.trim().startsWith('```json') && text.trim().endsWith('```')) {
+                    const jsonContent = text.trim().slice(7, -3); // Remove ```json and ```
+                    const processedHtml = parseJsonContent(jsonContent);
+                    element.innerHTML = processedHtml;
+                    element.style.whiteSpace = 'normal';
+                    return true;
+                } else if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
+                    // Direct JSON content without markdown code blocks
+                    try {
+                        const processedHtml = parseJsonContent(text.trim());
+                        element.innerHTML = processedHtml;
+                        element.style.whiteSpace = 'normal';
+                        return true;
+                    } catch (e) {
+                        // Not valid JSON, continue to markdown processing
+                    }
+                }
+                return false;
+            }
+            
+            // Process all potential JSON containers
+            document.querySelectorAll('p, div, .analysis-summary, .llm-analysis div').forEach(element => {
+                if (processElementForJson(element)) {
+                    return; // Successfully processed as JSON
+                }
+                
+                // If not JSON, try markdown processing
+                const text = element.textContent || element.innerText;
+                if (text.includes('###') || text.includes('**') || text.includes('- ') || text.includes('#### ')) {
+                    const processedHtml = parseMarkdownContent(text);
+                    element.innerHTML = processedHtml;
+                    element.style.whiteSpace = 'normal';
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="header">
+        <h1>Project Analysis Report</h1>
+        <p><strong>Project:</strong> example-output</p>
+        <p><strong>Generated:</strong> 2025-08-15T03:22:58.755344+00:00</p>
+        <p><strong>Analysis Duration:</strong> 434728ms</p>
+        <p><strong>LLM Model:</strong> gpt-5 (OpenAI)</p>
+    </div>
+    
+    <div class="section">
+        <h2>Executive Summary</h2>
+        <div class="metric">
+            <strong>Complexity Score:</strong> 10.00
+        </div>
+        <div class="metric">
+            <strong>Maintainability Score:</strong> 4.72
+        </div>
+        <div class="metric">
+            <strong>Total Files:</strong> 20
+        </div>
+        <div class="metric">
+            <strong>Total Size:</strong> 0.16 MB
+        </div>
+        <p>{
+  "analysis": "This is a Rust-based command-line tool that scans a codebase, parses source files, builds a dependency graph, and generates multi-format reports (JSON/HTML/Markdown) summarizing structure, metrics, and improvement recommendations. It optionally augments static analysis with LLM-powered insights via pluggable providers (OpenAI, Anthropic, Ollama). The architecture is pipeline-oriented and modular, emphasizing separation of concerns between discovery, parsing, graph analysis, LLM integration, and reporting.",
+  "insights": [
+    {
+      "title": "Pipeline-oriented, modular architecture",
+      "description": "The system follows a clear pipeline: file discovery -> lightweight parsing -> dependency graph construction -> analysis (with optional LLM) -> reporting. Each stage is encapsulated in its own module with well-defined data structures, making the design extensible and maintainable.",
+      "category": "Architecture",
+      "confidence": 0.86,
+      "evidence": [
+        "src/lib.rs imports: FileDiscovery, SimpleParser, DependencyGraph, LLMClient, Analyzer, Reporter",
+        "src/main.rs defines Cli/Commands and orchestrates analyze_project",
+        "src/analyzer.rs class Analyzer with analyze_project and analyze_with_llm"
+      ]
+    },
+    {
+      "title": "Config-driven file discovery using ignore patterns",
+      "description": "File discovery leverages the ignore crate for performant directory traversal and supports include/exclude filtering and extension-based selection driven by a central Config.",
+      "category": "Functionality",
+      "confidence": 0.82,
+      "evidence": [
+        "src/file_discovery.rs imports ignore::WalkBuilder and regex",
+        "src/file_discovery.rs classes FileDiscovery, FileInfo; methods for filtering by path/extension",
+        "src/file_discovery.rs imports crate::config::Config"
+      ]
+    },
+    {
+      "title": "Lightweight, regex-based multi-language parsing",
+      "description": "Parsing is implemented with regular expressions and simple language patterns to extract functions, classes, imports, and exports across languages. This trades completeness for speed and portability.",
+      "category": "Implementation",
+      "confidence": 0.8,
+      "evidence": [
+        "src/simple_parser.rs imports regex::Regex and defines LanguagePatterns",
+        "src/simple_parser.rs defines ParsedFile, Function, Class; methods parse content into ParsedFile",
+        "README.md mentions JavaScript and analysis (inferred multi-language support)"
+      ]
+    },
+    {
+      "title": "Dependency graph built with petgraph",
+      "description": "The tool builds a directed dependency graph over files and symbols and performs higher-level analyses such as circular dependency detection, coupling, and depth metrics.",
+      "category": "Architecture",
+      "confidence": 0.88,
+      "evidence": [
+        "src/dependency_graph.rs imports petgraph::{Graph, Directed, graph::NodeIndex}",
+        "src/dependency_graph.rs classes: Node, Edge, GraphBuilder, DependencyAnalysis",
+        "src/reporter.rs includes DependencyAnalysisReport, CircularDependency, CouplingInfo, DependencyDepthInfo"
+      ]
+    },
+    {
+      "title": "LLM abstraction with multi-provider support and batching",
+      "description": "LLM usage is encapsulated behind LLMClient with provider-specific methods for OpenAI, Anthropic, and Ollama, and includes support for batched analysis requests.",
+      "category": "Technology",
+      "confidence": 0.9,
+      "evidence": [
+        "src/llm.rs functions: analyze_with_openai, analyze_with_ollama, analyze_with_anthropic, batch_analyze",
+        "src/llm.rs classes: LLMClient, AnalysisRequest, AnalysisResponse, Insight, Recommendation",
+        "src/llm.rs imports reqwest::Client and std::time::Duration"
+      ]
+    },
+    {
+      "title": "Parallelism via Rayon in Analyzer",
+      "description": "The Analyzer leverages Rayon for concurrent processing of files, improving throughput on large repositories.",
+      "category": "Implementation",
+      "confidence": 0.78,
+      "evidence": [
+        "src/analyzer.rs imports rayon::prelude::*",
+        "src/analyzer.rs methods process collections of FileInfo; presence of parallelizable steps",
+        "Analyzer stores flags debug_llm and skip_llm indicating configurable behavior"
+      ]
+    },
+    {
+      "title": "Multi-format reporting with structured summaries",
+      "description": "Reporting produces structured outputs (JSON, HTML, Markdown) including executive summary, language stats, file-level metrics, and prioritized recommendations.",
+      "category": "Functionality",
+      "confidence": 0.87,
+      "evidence": [
+        "src/reporter.rs classes: Report, ExecutiveSummary, LanguageStats, FileAnalysisReport, PrioritizedRecommendation",
+        "example-output/analysis_report.json and analysis_report.html present",
+        "example-output/analysis_summary.md present"
+      ]
+    },
+    {
+      "title": "CLI with subcommands and configuration options",
+      "description": "A Clap-based CLI exposes commands and options such as analysis invocation and output path configuration; environment variables are used for configuration (e.g., LLM keys).",
+      "category": "Functionality",
+      "confidence": 0.76,
+      "evidence": [
+        "src/main.rs imports clap::{Parser, Subcommand}; defines Cli, Commands, ReportFormat",
+        "src/main.rs references environment variables",
+        "examples/config_example.rs uses project_examer::Config"
+      ]
+    },
+    {
+      "title": "Configuration model centralizes analysis and LLM settings",
+      "description": "Config, LLMConfig, LLMProvider, and AnalysisConfig encapsulate tool behavior including provider selection, model names, and analysis options; documentation explains configuration sources.",
+      "category": "Architecture",
+      "confidence": 0.82,
+      "evidence": [
+        "src/config.rs classes: Config, LLMConfig, LLMProvider, AnalysisConfig",
+        "docs/CONFIGURATION.md describes provider (OpenAI/Anthropic/Ollama) and model settings",
+        "config.toml present at repo root"
+      ]
+    },
+    {
+      "title": "Static HTML viewer renders JSON/Markdown client-side",
+      "description": "The HTML report includes JavaScript utilities to parse and render JSON and Markdown at runtime, enabling a portable, static report viewer.",
+      "category": "Technology",
+      "confidence": 0.74,
+      "evidence": [
+        "example-output/analysis_report.html functions: parseJsonContent, parseMarkdownContent, processElementForJson",
+        "analysis_report.html includes numerous DOM processing functions and event listeners",
+        "README.md references report generation"
+      ]
+    },
+    {
+      "title": "Design emphasizes extensibility and optional LLM use",
+      "description": "LLM integration is optional (skip_llm flag) and insights are merged into the overall report, reflecting a design that augments static analysis without making it a hard dependency.",
+      "category": "Architecture",
+      "confidence": 0.73,
+      "evidence": [
+        "src/analyzer.rs has skip_llm and analyze_with_llm",
+        "src/llm.rs defines Insight, Recommendation types integrated with Reporter",
+        "docs/CONFIGURATION.md mentions enabling/disabling LLM providers"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Adopt a robust parser (e.g., Tree-sitter) to improve accuracy",
+      "description": "Regex-based parsing can miss constructs and create false positives. Integrating Tree-sitter (or language servers for supported languages) will yield precise ASTs, improving function/class detection and dependency edges.",
+      "priority": "High",
+      "effort": "High",
+      "impact": "High",
+      "action_items": [
+        "Introduce a parser abstraction trait and implement a TreeSitterParser alongside SimpleParser",
+        "Add per-language grammars and map AST nodes to ParsedFile/Function/Class",
+        "Gate selection via config (e.g., analysis.parser = 'regex'|'tree-sitter') and migrate gradually",
+        "Add tests comparing outputs between regex and Tree-sitter on sample projects"
+      ]
+    },
+    {
+      "title": "Implement incremental analysis with caching",
+      "description": "Re-scan and re-parse only changed files and reuse previous graph and report data to reduce runtime on large repos.",
+      "priority": "High",
+      "effort": "Medium",
+      "impact": "High",
+      "action_items": [
+        "Cache file metadata (paths, sizes, mtimes, hashes) and ParsedFile/graph fragments on disk",
+        "Detect changes and rebuild only affected subgraphs; compose into final graph",
+        "Persist and version Report data; include cache invalidation on config/LLM changes",
+        "Expose CLI flags: --no-cache, --clear-cache, --cache-dir"
+      ]
+    },
+    {
+      "title": "Harden LLM client with retries, rate limiting, and timeouts",
+      "description": "Improve reliability and cost control for LLM calls by adding exponential backoff, rate limiting, and stricter timeouts; redact secrets in logs.",
+      "priority": "High",
+      "effort": "Medium",
+      "impact": "High",
+      "action_items": [
+        "Wrap reqwest::Client calls with retry/backoff and per-provider rate limits",
+        "Add configurable timeouts in LLMConfig; surface errors with actionable context",
+        "Implement request batching windows and concurrency caps per provider",
+        "Ensure API keys are read from env/Config and redacted in debug_llm logs"
+      ]
+    },
+    {
+      "title": "Introduce structured logging and observability",
+      "description": "Add tracing-based structured logs and progress reporting to improve diagnosability and UX during long runs.",
+      "priority": "Medium",
+      "effort": "Medium",
+      "impact": "Medium",
+      "action_items": [
+        "Integrate tracing and tracing-subscriber with JSON/pretty formats and log levels",
+        "Emit spans for discovery, parsing, graph build, LLM, reporting; add progress bar",
+        "Redact sensitive fields (tokens, file contents) in logs"
+      ]
+    },
+    {
+      "title": "Establish comprehensive testing (unit, integration, golden tests)",
+      "description": "Strengthen correctness with targeted tests for parser, graph analysis, and report generation, including golden-file comparisons for outputs.",
+      "priority": "High",
+      "effort": "Medium",
+      "impact": "High",
+      "action_items": [
+        "Create fixtures (small JS/TS/Rust/Python projects) with expected ParsedFile and graph outputs",
+        "Add golden tests for reporter JSON/HTML/Markdown outputs",
+        "Property-based tests for dependency_graph (e.g., cycle detection) using proptest",
+        "Mock LLMClient and add deterministic tests for LLM-assisted insights"
+      ]
+    },
+    {
+      "title": "Version and document the report schema",
+      "description": "Stabilize external integrations by versioning the JSON report schema and providing a JSON Schema document.",
+      "priority": "Medium",
+      "effort": "Low",
+      "impact": "Medium",
+      "action_items": [
+        "Add schema_version to Report/ReportMetadata",
+        "Publish a JSON Schema file and validate output in CI",
+        "Document schema in README/docs and provide migration notes for changes"
+      ]
+    },
+    {
+      "title": "Refactor LLM providers behind a trait-based plug-in",
+      "description": "Decouple provider-specific code into separate modules implementing a common trait to simplify maintenance and extension.",
+      "priority": "Medium",
+      "effort": "Medium",
+      "impact": "Medium",
+      "action_items": [
+        "Define a LlmProvider trait (prepare_request, send, parse_response) and move OpenAI/Anthropic/Ollama into modules",
+        "Use dyn dispatch or generics in LLMClient; remove provider-specific branching where possible",
+        "Normalize AnalysisRequest/Response across providers"
+      ]
+    },
+    {
+      "title": "Improve HTML report safety and rendering fidelity",
+      "description": "Ensure client-side Markdown/JSON rendering avoids XSS and malformed content; enhance readability for large reports.",
+      "priority": "Medium",
+      "effort": "Low",
+      "impact": "Medium",
+      "action_items": [
+        "Sanitize Markdown/HTML using a whitelist sanitizer before insertion",
+        "Virtualize large lists/tables and add filtering/search in the HTML viewer",
+        "Add a content-security-policy recommendation in documentation"
+      ]
+    },
+    {
+      "title": "Performance tuning for large repositories",
+      "description": "Optimize CPU and memory usage through controlled parallelism and stream-based processing of large files.",
+      "priority": "Medium",
+      "effort": "Medium",
+      "impact": "Medium",
+      "action_items": [
+        "Expose --threads and configure Rayon thread pool size",
+        "Skip or truncate very large/binary files via config (size limits, extensions)",
+        "Use incremental readers where possible and avoid loading entire files into memory"
+      ]
+    },
+    {
+      "title": "Add CI/CD pipeline and distribution artifacts",
+      "description": "Automate quality gates and provide easy installation paths.",
+      "priority": "Low",
+      "effort": "Medium",
+      "impact": "Medium",
+      "action_items": [
+        "Set up GitHub Actions with fmt, clippy, tests, and release workflows",
+        "Publish release binaries for major platforms; provide a Dockerfile",
+        "Optionally publish to crates.io with proper Cargo metadata"
+      ]
+    },
+    {
+      "title": "Validate configuration and provide rich error messages",
+      "description": "Improve UX by validating config (paths, provider settings, model names) and guiding users with actionable errors.",
+      "priority": "Low",
+      "effort": "Low",
+      "impact": "Medium",
+      "action_items": [
+        "Add Config::validate returning detailed errors per field",
+        "Emit warnings for unsupported extensions or empty file sets",
+        "Document environment variable names and precedence in docs/CONFIGURATION.md"
+      ]
+    }
+  ],
+  "confidence": 0.83
+}</p>
+    </div>
+
+    <div class="section">
+        <h2>Key Recommendations</h2>
+        
+    </div>
+
+    <div class="section">
+        <h2>LLM Analysis & Insights</h2>
+        <div class="llm-analysis">
+                <div class="analysis-type">Overview Analysis</div><div class="analysis-summary">This is a Rust-based command-line tool that scans a codebase, parses source files, builds a dependency graph, and generates multi-format reports (JSON/HTML/Markdown) summarizing structure, metrics, and improvement recommendations. It optionally augments static analysis with LLM-powered insights via pluggable providers (OpenAI, Anthropic, Ollama). The architecture is pipeline-oriented and modular, emphasizing separation of concerns between discovery, parsing, graph analysis, LLM integration, and reporting.</div><h4>Key Insights</h4>
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>Insight</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Confidence</th>
+                            <th>Evidence</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr>
+                        <td><strong>Pipeline-oriented, modular architecture</strong></td>
+                        <td>Architecture</td>
+                        <td>The system follows a clear pipeline: file discovery -> lightweight parsing -> dependency graph construction -> analysis (with optional LLM) -> reporting. Each stage is encapsulated in its own module with well-defined data structures, making the design extensible and maintainable.</td>
+                        <td class="confidence-high">86%</td>
+                        <td>• src/lib.rs imports: FileDiscovery, SimpleParser, DependencyGraph, LLMClient, Analyzer, Reporter<br>• src/main.rs defines Cli/Commands and orchestrates analyze_project<br>• src/analyzer.rs class Analyzer with analyze_project and analyze_with_llm</td>
+                    </tr><tr>
+                        <td><strong>Dependency graph built with petgraph</strong></td>
+                        <td>Architecture</td>
+                        <td>The tool builds a directed dependency graph over files and symbols and performs higher-level analyses such as circular dependency detection, coupling, and depth metrics.</td>
+                        <td class="confidence-high">88%</td>
+                        <td>• src/dependency_graph.rs imports petgraph::{Graph, Directed, graph::NodeIndex}<br>• src/dependency_graph.rs classes: Node, Edge, GraphBuilder, DependencyAnalysis<br>• src/reporter.rs includes DependencyAnalysisReport, CircularDependency, CouplingInfo, DependencyDepthInfo</td>
+                    </tr><tr>
+                        <td><strong>Configuration model centralizes analysis and LLM settings</strong></td>
+                        <td>Architecture</td>
+                        <td>Config, LLMConfig, LLMProvider, and AnalysisConfig encapsulate tool behavior including provider selection, model names, and analysis options; documentation explains configuration sources.</td>
+                        <td class="confidence-high">82%</td>
+                        <td>• src/config.rs classes: Config, LLMConfig, LLMProvider, AnalysisConfig<br>• docs/CONFIGURATION.md describes provider (OpenAI/Anthropic/Ollama) and model settings<br>• config.toml present at repo root</td>
+                    </tr><tr>
+                        <td><strong>Design emphasizes extensibility and optional LLM use</strong></td>
+                        <td>Architecture</td>
+                        <td>LLM integration is optional (skip_llm flag) and insights are merged into the overall report, reflecting a design that augments static analysis without making it a hard dependency.</td>
+                        <td class="confidence-medium">73%</td>
+                        <td>• src/analyzer.rs has skip_llm and analyze_with_llm<br>• src/llm.rs defines Insight, Recommendation types integrated with Reporter<br>• docs/CONFIGURATION.md mentions enabling/disabling LLM providers</td>
+                    </tr></tbody></table><h4>Recommendations</h4>
+                <table class="recommendations-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Priority</th>
+                            <th>Effort</th>
+                            <th>Impact</th>
+                            <th>Action Items</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr class="priority-high">
+                        <td><strong>Adopt a robust parser (e.g., Tree-sitter) to improve accuracy</strong></td>
+                        <td>Regex-based parsing can miss constructs and create false positives. Integrating Tree-sitter (or language servers for supported languages) will yield precise ASTs, improving function/class detection and dependency edges.</td>
+                        <td>High</td>
+                        <td>High</td>
+                        <td>High</td>
+                        <td>• Introduce a parser abstraction trait and implement a TreeSitterParser alongside SimpleParser<br>• Add per-language grammars and map AST nodes to ParsedFile/Function/Class<br>• Gate selection via config (e.g., analysis.parser = 'regex'|'tree-sitter') and migrate gradually<br>• Add tests comparing outputs between regex and Tree-sitter on sample projects</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Implement incremental analysis with caching</strong></td>
+                        <td>Re-scan and re-parse only changed files and reuse previous graph and report data to reduce runtime on large repos.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Cache file metadata (paths, sizes, mtimes, hashes) and ParsedFile/graph fragments on disk<br>• Detect changes and rebuild only affected subgraphs; compose into final graph<br>• Persist and version Report data; include cache invalidation on config/LLM changes<br>• Expose CLI flags: --no-cache, --clear-cache, --cache-dir</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Harden LLM client with retries, rate limiting, and timeouts</strong></td>
+                        <td>Improve reliability and cost control for LLM calls by adding exponential backoff, rate limiting, and stricter timeouts; redact secrets in logs.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Wrap reqwest::Client calls with retry/backoff and per-provider rate limits<br>• Add configurable timeouts in LLMConfig; surface errors with actionable context<br>• Implement request batching windows and concurrency caps per provider<br>• Ensure API keys are read from env/Config and redacted in debug_llm logs</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Introduce structured logging and observability</strong></td>
+                        <td>Add tracing-based structured logs and progress reporting to improve diagnosability and UX during long runs.</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Integrate tracing and tracing-subscriber with JSON/pretty formats and log levels<br>• Emit spans for discovery, parsing, graph build, LLM, reporting; add progress bar<br>• Redact sensitive fields (tokens, file contents) in logs</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Establish comprehensive testing (unit, integration, golden tests)</strong></td>
+                        <td>Strengthen correctness with targeted tests for parser, graph analysis, and report generation, including golden-file comparisons for outputs.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Create fixtures (small JS/TS/Rust/Python projects) with expected ParsedFile and graph outputs<br>• Add golden tests for reporter JSON/HTML/Markdown outputs<br>• Property-based tests for dependency_graph (e.g., cycle detection) using proptest<br>• Mock LLMClient and add deterministic tests for LLM-assisted insights</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Version and document the report schema</strong></td>
+                        <td>Stabilize external integrations by versioning the JSON report schema and providing a JSON Schema document.</td>
+                        <td>Medium</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Add schema_version to Report/ReportMetadata<br>• Publish a JSON Schema file and validate output in CI<br>• Document schema in README/docs and provide migration notes for changes</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Refactor LLM providers behind a trait-based plug-in</strong></td>
+                        <td>Decouple provider-specific code into separate modules implementing a common trait to simplify maintenance and extension.</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Define a LlmProvider trait (prepare_request, send, parse_response) and move OpenAI/Anthropic/Ollama into modules<br>• Use dyn dispatch or generics in LLMClient; remove provider-specific branching where possible<br>• Normalize AnalysisRequest/Response across providers</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Improve HTML report safety and rendering fidelity</strong></td>
+                        <td>Ensure client-side Markdown/JSON rendering avoids XSS and malformed content; enhance readability for large reports.</td>
+                        <td>Medium</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Sanitize Markdown/HTML using a whitelist sanitizer before insertion<br>• Virtualize large lists/tables and add filtering/search in the HTML viewer<br>• Add a content-security-policy recommendation in documentation</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Performance tuning for large repositories</strong></td>
+                        <td>Optimize CPU and memory usage through controlled parallelism and stream-based processing of large files.</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Expose --threads and configure Rayon thread pool size<br>• Skip or truncate very large/binary files via config (size limits, extensions)<br>• Use incremental readers where possible and avoid loading entire files into memory</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Add CI/CD pipeline and distribution artifacts</strong></td>
+                        <td>Automate quality gates and provide easy installation paths.</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Set up GitHub Actions with fmt, clippy, tests, and release workflows<br>• Publish release binaries for major platforms; provide a Dockerfile<br>• Optionally publish to crates.io with proper Cargo metadata</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Validate configuration and provide rich error messages</strong></td>
+                        <td>Improve UX by validating config (paths, provider settings, model names) and guiding users with actionable errors.</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Add Config::validate returning detailed errors per field<br>• Emit warnings for unsupported extensions or empty file sets<br>• Document environment variable names and precedence in docs/CONFIGURATION.md</td>
+                    </tr></tbody></table></div><div class="llm-analysis">
+                <div class="analysis-type">Architecture Analysis</div><div class="analysis-summary">This is a monolithic Rust CLI application organized into clear layers that implement a pipeline: discover files, parse, build a dependency graph, optionally call an LLM for deeper insights, and generate reports in multiple formats. The architecture combines configuration-driven behavior, concurrent analysis with Rayon, and a petgraph-backed dependency analysis, exposing both a library API and a CLI.</div><h4>Key Insights</h4>
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>Insight</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Confidence</th>
+                            <th>Evidence</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr>
+                        <td><strong>Layered Architecture</strong></td>
+                        <td>Architecture</td>
+                        <td>The codebase follows a layered structure separating configuration, discovery, parsing, graph analysis, LLM integration, orchestration, and reporting. Each layer has focused responsibilities and communicates via serializable data structures.</td>
+                        <td class="confidence-high">90%</td>
+                        <td>• Module layout: src/config.rs, src/file_discovery.rs, src/simple_parser.rs, src/dependency_graph.rs, src/llm.rs, src/analyzer.rs, src/reporter.rs<br>• src/lib.rs re-exports core modules (Config, FileDiscovery, SimpleParser, DependencyGraph, LLMClient, Analyzer, Reporter) suggesting a composed layered API</td>
+                    </tr><tr>
+                        <td><strong>Pipeline/ETL-Style Dataflow</strong></td>
+                        <td>Architecture</td>
+                        <td>The main application orchestrates a pipeline: file discovery -> parsing -> dependency graph -> (optional) LLM analysis -> reporting. This resembles an ETL flow, enabling clear stage-wise processing and potential parallelism.</td>
+                        <td class="confidence-high">90%</td>
+                        <td>• src/main.rs: Cli invokes analyze_project which delegates to Analyzer/Reporter<br>• src/analyzer.rs: analyze_project orchestrates reading files, optional LLM analysis, and producing a ProjectAnalysis consumed by Reporter</td>
+                    </tr></tbody></table><h4>Recommendations</h4>
+                <table class="recommendations-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Priority</th>
+                            <th>Effort</th>
+                            <th>Impact</th>
+                            <th>Action Items</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr class="priority-high">
+                        <td><strong>Introduce Trait-Based LLM Provider Interface</strong></td>
+                        <td>Replace enum-based branching in LLMClient with a trait (e.g., LlmProvider) and provider-specific implementations (OpenAI, Anthropic, Ollama). This adheres to Open/Closed principle, simplifies testing/mocking, and makes adding new providers a non-breaking extension.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Define a LlmProvider trait with analyze(request: &AnalysisRequest) -> Result<AnalysisResponse><br>• Create provider structs implementing the trait; move provider-specific code from LLMClient into these<br>• Inject provider via Config or builder in Analyzer/LLMClient (trait object or generics)<br>• Add unit tests for each provider implementation with mocked HTTP</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Adopt Ports and Adapters (Hexagonal) for LLM and IO</strong></td>
+                        <td>Isolate external services (LLM HTTP calls, filesystem, output) behind ports (traits) with adapter implementations. This will decouple domain logic from infrastructure and improve testability and flexibility.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Define ports: FileSource, GraphStore (if needed), LlmProvider, ReporterSink<br>• Refactor Analyzer to depend on these ports instead of concrete modules<br>• Provide default adapters using current modules; enable in-memory fakes for tests<br>• Document extension points in README and docs/IMPROVEMENTS.md</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Enhance Parser Accuracy via Pluggable Language Adapters</strong></td>
+                        <td>Move from regex-only parsing to a pluggable system that can use language-specific parsers (e.g., tree-sitter) while keeping regex as a fallback. Improves correctness for complex syntax and cross-language projects.</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>High</td>
+                        <td>• Define a Parser trait returning a ParsedFile for a FileInfo<br>• Implement a tree-sitter-based parser for key languages (Rust, JS/TS, Python)<br>• Fallback to SimpleParser where no adapter exists<br>• Add conformance tests comparing parsed structures to known ground truth</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Implement Caching for LLM Responses</strong></td>
+                        <td>Cache AnalysisRequest->AnalysisResponse pairs keyed by content hash and provider+model. This reduces costs and latency when reanalyzing unchanged projects.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Compute content hashes for inputs (files list, config, prompts)<br>• Add a disk-backed cache (e.g., sqlite or JSONL) with TTL/versioning<br>• Bypass remote calls when a valid cache entry exists<br>• Expose --no-cache and --refresh flags in CLI</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Structured Logging and Tracing</strong></td>
+                        <td>Add structured logs with spans for each pipeline stage (discovery, parsing, graph, LLM, reporting) to aid debugging and performance analysis.</td>
+                        <td>Medium</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Integrate tracing and tracing-subscriber with JSON output option<br>• Instrument Analyzer stages and LLM calls (including timing, retries, status)<br>• Add --log-level and --log-format CLI flags<br>• Document log fields for observability</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Harden Error Handling and Retries for LLM Calls</strong></td>
+                        <td>Replace generic anyhow errors with a typed error enum for LLM interactions and implement retry with backoff and timeouts. Improves reliability under transient failures.</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Define LlmError with variants (Timeout, RateLimited, InvalidResponse, Network, Auth)<br>• Configure reqwest Client with timeouts; implement exponential backoff for retryable errors<br>• Surface error categories in Reporter and CLI exit codes<br>• Add tests simulating transient failures</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Improve Reporting Extensibility</strong></td>
+                        <td>Abstract reporting formats behind a trait and move HTML/Markdown/JSON emitters into separate modules. Supports adding formats (e.g., SARIF) without modifying core Reporter.</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Introduce a ReportWriter trait: write(report, output_dir) -> Result<()><br>• Refactor existing writers into json, html, md modules<br>• Register writers via config/CLI flags<br>• Add golden-file tests for each format</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Add Unit and Integration Tests</strong></td>
+                        <td>Increase confidence with tests for each layer: discovery, parsing, graph construction, LLM provider selection, and reporting. Include end-to-end tests on sample repos.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Create tests for file filtering patterns and ignore behavior<br>• Verify parser extracts functions/classes/imports correctly on fixtures<br>• Test cycle detection and coupling metrics in dependency_graph<br>• Add CLI E2E test invoking main on a test project and snapshot outputs</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Validate Configuration and Provide Schemas</strong></td>
+                        <td>Add explicit validation and defaults for config fields to avoid runtime surprises; optionally publish a JSON schema for config.toml.</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Implement Config::validate() returning detailed errors<br>• Use serde(default) and typed enums for constrained fields<br>• Add config schema and example files in docs<br>• Fail-fast in main.rs when config invalid</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Modularize into Workspace Crates</strong></td>
+                        <td>Split into crates (core/domain, adapters/infrastructure, cli) to enforce boundaries and enable reuse without CLI dependencies.</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Create a Cargo workspace with crates: project-examer-core, project-examer-adapters, project-examer-cli<br>• Move domain types and Analyzer into core; HTTP/LLM/reporters into adapters; Clap-only code into cli<br>• Use feature flags to toggle providers and formats<br>• Update docs and imports accordingly</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Security and Secrets Handling</strong></td>
+                        <td>Ensure API keys and tokens are loaded securely and never written to logs or reports; document best practices.</td>
+                        <td>Medium</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Redact secrets in logs; add guardrails in LLMClient<br>• Support loading secrets from env and OS keychain where feasible<br>• Document required env vars in README and docs/CONFIGURATION.md<br>• Add a CI check preventing accidental commit of secrets</td>
+                    </tr></tbody></table></div><div class="llm-analysis">
+                <div class="analysis-type">Dependencies Analysis</div><div class="analysis-summary">The codebase follows a mostly clean layered structure: discovery -> parsing -> dependency graph -> analysis -> reporting, with a separate LLM integration. No circular dependencies are evident in the module graph. However, there are a few coupling hotspots (parser depending on discovery types, reporter likely reusing LLM domain enums) and opportunities to improve modularity and testability via traits and dependency injection.</div><h4>Recommendations</h4>
+                <table class="recommendations-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Priority</th>
+                            <th>Effort</th>
+                            <th>Impact</th>
+                            <th>Action Items</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr class="priority-high">
+                        <td><strong>Decouple SimpleParser from FileDiscovery via a domain type or trait</strong></td>
+                        <td>Remove the dependency from simple_parser to file_discovery by introducing a lightweight domain type (e.g., FileRef { path, content, language }) or a FileSource trait. The parser should accept &str content and minimal metadata, enabling isolated testing and reuse with alternate sources.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Create a domain module (e.g., src/domain/types.rs) with FileRef and move FileInfo-like fields there<br>• Change SimpleParser APIs to accept FileRef or (&Path, &str) instead of file_discovery::FileInfo<br>• Update FileDiscovery to produce FileRef and adjust call sites in Analyzer</td>
+                    </tr><tr class="priority-high">
+                        <td><strong>Introduce LLM provider strategy and inject HTTP transport</strong></td>
+                        <td>Split provider-specific logic into separate structs implementing an LLMProviderClient trait. Inject a reqwest::Client (or a small HTTP trait) and timeouts from configuration. This enables mocking in tests, easier provider extensions, and clearer separation of concerns.</td>
+                        <td>High</td>
+                        <td>Medium</td>
+                        <td>High</td>
+                        <td>• Define trait LLMProviderClient { fn analyze(&self, req: &AnalysisRequest) -> Result<AnalysisResponse>; }<br>• Implement OpenAIClient, AnthropicClient, OllamaClient in src/llm/providers/<br>• Refactor LLMClient to hold a Box<dyn LLMProviderClient> constructed from LLMProvider<br>• Inject reqwest::Client via constructor and add a mock transport behind a feature for tests</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Unify Priority/Effort/Impact enums in a shared domain module</strong></td>
+                        <td>Move shared recommendation domain types (Priority, Effort, Impact, Recommendation) into a dedicated domain module so reporter and LLM integrations depend on the same definitions. This avoids duplicate types or cross-module coupling to llm.rs.</td>
+                        <td>Medium</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Create src/domain/mod.rs with enums Priority, Effort, Impact and struct Recommendation<br>• Update llm.rs and reporter.rs to use crate::domain::{Priority, Effort, Impact, Recommendation}<br>• Add From/Into impls if temporary compatibility with old types is needed during migration</td>
+                    </tr><tr class="priority-medium">
+                        <td><strong>Abstract graph representation and avoid leaking PathBuf</strong></td>
+                        <td>Hide petgraph-specific types and filesystem paths behind domain-specific graph types or query functions. Use stable identifiers (e.g., file_id: String) in node metadata and keep path handling outside the graph module.</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Introduce a DependencyGraph trait exposing high-level queries (e.g., dependencies_of, find_cycles)<br>• Replace PathBuf in NodeMetadata with a normalized string ID and keep path mapping externally<br>• Avoid returning petgraph::NodeIndex in public APIs; expose indices via opaque newtypes or pure data</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Constrain lib.rs public API surface</strong></td>
+                        <td>Reduce re-exports from lib.rs to only stable, consumer-facing types (Config, Analyzer, Reporter) and keep internal modules private. This protects internal structure and eases refactoring.</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>• Stop publicly re-exporting low-level modules (FileDiscovery, SimpleParser, DependencyGraph, LLMClient)<br>• Add a prelude or explicit API module with curated types<br>• Mark internal modules as pub(crate) where possible</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Encapsulate parallelism behind an execution strategy</strong></td>
+                        <td>Remove direct rayon usage from Analyzer by introducing an Executor trait with parallel and sequential implementations. This simplifies testing and allows tuning concurrency without changing analysis logic.</td>
+                        <td>Low</td>
+                        <td>Medium</td>
+                        <td>Medium</td>
+                        <td>• Define trait Executor { fn for_each<T: IntoIterator>(...) } or provide helper functions<br>• Provide SequentialExecutor and RayonExecutor implementations<br>• Inject Executor into Analyzer via constructor or feature flags</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Audit serde derives and isolate DTOs for I/O boundaries</strong></td>
+                        <td>Limit Serialize/Deserialize derives to types that cross I/O boundaries (configuration, report outputs). Keep internal algorithmic types decoupled from serialization concerns to reduce accidental coupling.</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>• Identify structs/enums with serde derives in analyzer.rs and dependency_graph.rs<br>• Introduce explicit output DTOs for reporter and map from internal types<br>• Remove unnecessary derives and add unit tests for serialization of public DTOs</td>
+                    </tr><tr class="priority-low">
+                        <td><strong>Add automated checks for cycles and unused dependencies</strong></td>
+                        <td>Even though no cycles are observed, add CI checks to prevent regressions and to detect unused dependencies.</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>Low</td>
+                        <td>• Add a unit test using petgraph to assert the dependency graph is acyclic for project code<br>• Integrate cargo-udeps in CI to detect unused crate dependencies<br>• Optionally add cargo-deny to enforce dependency policies</td>
+                    </tr></tbody></table></div>
+    </div>
+
+    <div class="section">
+        <h2>File Analysis</h2>
+        <h3>Language Distribution</h3>
+        <table>
+            <tr><th>Language</th><th>Files</th><th>Size (MB)</th><th>Percentage</th></tr>
+            <tr><td>html</td><td>1</td><td>0.02</td><td>5.0%</td></tr>
+<tr><td>markdown</td><td>5</td><td>0.02</td><td>25.0%</td></tr>
+<tr><td>toml</td><td>2</td><td>0.00</td><td>10.0%</td></tr>
+<tr><td>json</td><td>1</td><td>0.00</td><td>5.0%</td></tr>
+<tr><td>text</td><td>1</td><td>0.00</td><td>5.0%</td></tr>
+<tr><td>rust</td><td>10</td><td>0.12</td><td>50.0%</td></tr>
+        </table>
+    </div>
+
+</body>
+</html>

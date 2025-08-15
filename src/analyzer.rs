@@ -2,13 +2,14 @@ use crate::{
     config::Config,
     dependency_graph::{DependencyGraph, GraphBuilder},
     file_discovery::{FileDiscovery, FileInfo},
-    llm::{AnalysisRequest, AnalysisContext, AnalysisType, FileContext, DependencyContext, ProjectInfo, LLMClient, AnalysisResponse},
+    llm::{AnalysisRequest, AnalysisContext, AnalysisType, FileContext, DependencyContext, ProjectInfo, LLMClient, AnalysisResponse, DocumentationContext},
     simple_parser::{SimpleParser, ParsedFile},
 };
 use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 
 pub struct Analyzer {
     config: Config,
@@ -17,9 +18,9 @@ pub struct Analyzer {
 }
 
 impl Analyzer {
-    pub fn new(config: Config) -> Result<Self> {
+    pub fn new(config: Config, debug_llm: bool) -> Result<Self> {
         let file_discovery = FileDiscovery::new(config.clone());
-        let llm_client = LLMClient::new(config.llm.clone());
+        let llm_client = LLMClient::new(config.llm.clone(), debug_llm);
 
         Ok(Self {
             config,
@@ -97,25 +98,53 @@ impl Analyzer {
         _graph: &DependencyGraph,
         files: &[FileInfo],
     ) -> Result<Vec<AnalysisResponse>> {
+        println!("  📊 Preparing analysis context...");
         let context = self.create_analysis_context(parsed_files, _graph, files);
         
         let analysis_types = vec![
-            AnalysisType::Overview,
-            AnalysisType::Architecture,
-            AnalysisType::Dependencies,
+            ("Overview", AnalysisType::Overview),
+            ("Architecture", AnalysisType::Architecture), 
+            ("Dependencies", AnalysisType::Dependencies),
         ];
 
-        let mut requests = Vec::new();
-        for analysis_type in analysis_types {
-            let prompt = self.create_prompt_for_type(&analysis_type);
-            requests.push(AnalysisRequest {
+        println!("  🔄 Running {} analysis types...", analysis_types.len());
+        
+        let mut results = Vec::new();
+        for (i, (name, analysis_type)) in analysis_types.iter().enumerate() {
+            println!("  {} Analyzing {} ({}/{})...", 
+                if i == 0 { "🚀" } else { "📈" }, 
+                name, 
+                i + 1, 
+                analysis_types.len()
+            );
+            
+            let prompt = self.create_prompt_for_type(analysis_type);
+            let request = AnalysisRequest {
                 prompt,
                 context: context.clone(),
-                analysis_type,
-            });
+                analysis_type: analysis_type.clone(),
+            };
+
+            match self.llm_client.analyze(request).await {
+                Ok(response) => {
+                    println!("    ✅ {} analysis completed", name);
+                    results.push(response);
+                }
+                Err(e) => {
+                    println!("    ⚠️  {} analysis failed: {}", name, e);
+                    // Continue with other analyses even if one fails
+                    println!("    📝 Continuing with remaining analyses...");
+                }
+            }
         }
 
-        self.llm_client.batch_analyze(requests).await
+        if results.is_empty() {
+            println!("  ⚠️  All LLM analyses failed, continuing with local analysis only");
+        } else {
+            println!("  ✅ Completed {}/{} LLM analyses successfully", results.len(), analysis_types.len());
+        }
+
+        Ok(results)
     }
 
     fn create_analysis_context(
@@ -166,23 +195,170 @@ impl Analyzer {
             architecture_patterns: Vec::new(), // Will be filled by analysis
         };
 
+        let documentation = self.extract_documentation_content(files);
+
         AnalysisContext {
             files: file_contexts,
             dependencies: dependency_contexts,
             project_info,
+            documentation,
         }
+    }
+
+    fn extract_documentation_content(&self, files: &[FileInfo]) -> Vec<DocumentationContext> {
+        let mut documentation = Vec::new();
+        
+        for file in files {
+            if let Some(ref language) = file.language {
+                let is_documentation = matches!(language.as_str(), 
+                    "markdown" | "text" | "json" | "yaml" | "toml");
+                
+                if is_documentation {
+                    match fs::read_to_string(&file.path) {
+                        Ok(content) => {
+                            let summary = if content.len() > 500 {
+                                format!("{}... ({} characters total)", &content[..500], content.len())
+                            } else {
+                                content.clone()
+                            };
+                            
+                            documentation.push(DocumentationContext {
+                                path: file.path.to_string_lossy().to_string(),
+                                file_type: language.clone(),
+                                content: if content.len() > 8000 {
+                                    // Truncate very long files but keep first and last parts
+                                    format!("{}...\n\n[FILE TRUNCATED - {} total characters]\n\n...{}", 
+                                        &content[..4000], content.len(), &content[content.len().saturating_sub(2000)..])
+                                } else {
+                                    content
+                                },
+                                summary,
+                            });
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: Could not read documentation file {}: {}", 
+                                file.path.display(), e);
+                        }
+                    }
+                }
+            }
+        }
+        
+        documentation
     }
 
     fn create_prompt_for_type(&self, analysis_type: &AnalysisType) -> String {
         match analysis_type {
             AnalysisType::Overview => {
-                "Provide a comprehensive overview of this software project. Describe what the software does, its main components, architecture style, and how different parts work together.".to_string()
+                r#"Provide a comprehensive overview of this software project in the following JSON format:
+
+```json
+{
+  "analysis": "Brief overview of what the software does and its main purpose in 2-3 sentences",
+  "insights": [
+    {
+      "title": "Key Insight Title",
+      "description": "Detailed description of a key aspect, component, or characteristic of the project",
+      "category": "Architecture|Functionality|Technology|Implementation",
+      "confidence": 0.8,
+      "evidence": [
+        "Specific evidence from the codebase supporting this insight",
+        "Another piece of evidence"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Recommendation Title",
+      "description": "Detailed description of how to improve the project",
+      "priority": "High|Medium|Low",
+      "effort": "High|Medium|Low", 
+      "impact": "High|Medium|Low",
+      "action_items": [
+        "Specific actionable step",
+        "Another specific step"
+      ]
+    }
+  ],
+  "confidence": 0.8
+}
+```
+
+Focus on describing what the software does, its main components, technology choices, architecture style, and how different parts work together. Use the provided documentation files (README, configuration files, etc.) to understand the project's purpose, goals, and design decisions."#.to_string()
             }
             AnalysisType::Architecture => {
-                "Analyze the software architecture of this project. Identify architectural patterns (MVC, microservices, layered, etc.), design principles used, and the overall structural organization.".to_string()
+                r#"Analyze the software architecture of this project and provide insights in the following JSON format:
+
+```json
+{
+  "analysis": "Brief architectural overview of the project in 2-3 sentences",
+  "insights": [
+    {
+      "title": "Architecture Pattern Name",
+      "description": "Detailed description of the architectural pattern or design principle identified",
+      "category": "Architecture|Design Pattern|Structure|Organization",
+      "confidence": 0.8,
+      "evidence": [
+        "Specific evidence from the codebase supporting this insight",
+        "Another piece of evidence"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Recommendation Title",
+      "description": "Detailed description of the architectural improvement",
+      "priority": "High|Medium|Low",
+      "effort": "High|Medium|Low", 
+      "impact": "High|Medium|Low",
+      "action_items": [
+        "Specific actionable step",
+        "Another specific step"
+      ]
+    }
+  ],
+  "confidence": 0.8
+}
+```
+
+Focus on identifying architectural patterns (MVC, microservices, layered, etc.), design principles (SOLID, DRY, etc.), structural organization, modularity, and provide actionable recommendations for architectural improvements. Use the provided documentation to understand the intended architecture and design decisions."#.to_string()
             }
             AnalysisType::Dependencies => {
-                "Analyze the dependency relationships in this codebase. Identify coupling issues, circular dependencies, and suggest improvements for better modularity.".to_string()
+                r#"Analyze the dependency relationships in this codebase and provide insights in the following JSON format:
+
+```json
+{
+  "analysis": "Brief summary of the dependency structure and key findings in 2-3 sentences",
+  "insights": [
+    {
+      "title": "Dependency Issue or Pattern Name",
+      "description": "Detailed description of the dependency pattern, coupling issue, or modularity aspect identified",
+      "category": "Coupling|Modularity|Dependencies|Structure",
+      "confidence": 0.8,
+      "evidence": [
+        "Specific evidence from the codebase supporting this insight",
+        "Another piece of evidence"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Recommendation Title",
+      "description": "Detailed description of how to improve dependency management or modularity",
+      "priority": "High|Medium|Low",
+      "effort": "High|Medium|Low", 
+      "impact": "High|Medium|Low",
+      "action_items": [
+        "Specific actionable step to improve dependencies",
+        "Another specific step"
+      ]
+    }
+  ],
+  "confidence": 0.8
+}
+```
+
+Focus on identifying coupling issues, circular dependencies, modularity problems, dependency injection opportunities, and provide actionable recommendations for better dependency management. Consider the project's documentation to understand intended module relationships and design goals."#.to_string()
             }
             AnalysisType::Security => {
                 "Perform a security analysis of this codebase. Look for potential vulnerabilities, insecure patterns, and provide security recommendations.".to_string()

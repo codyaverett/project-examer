@@ -126,6 +126,8 @@ Project Examer generates comprehensive analysis reports:
 
 ## Examples
 
+You'll find examples of what reports are produced in the [./example-output/](./example-output/) directory.
+
 ### Analyze a React project
 ```bash
 project-examer analyze --path ./my-react-app --output ./analysis-results

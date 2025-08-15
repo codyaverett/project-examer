@@ -1,4 +1,4 @@
-use project_examer::{Config, Analyzer, Reporter};
+use project_examer::{Config, Analyzer, Reporter, config::LLMProvider};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -32,6 +32,10 @@ enum Commands {
         #[arg(long)]
         skip_llm: bool,
         
+        /// Show debug information for LLM requests and responses
+        #[arg(long)]
+        debug_llm: bool,
+        
         /// Generate only specific report format
         #[arg(long, value_enum)]
         format: Option<ReportFormat>,
@@ -57,8 +61,8 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Analyze { path, config, output, skip_llm, format } => {
-            analyze_project(path, config, output, skip_llm, format).await?;
+        Commands::Analyze { path, config, output, skip_llm, debug_llm, format } => {
+            analyze_project(path, config, output, skip_llm, debug_llm, format).await?;
         }
         Commands::Config { output } => {
             generate_config(output)?;
@@ -73,6 +77,7 @@ async fn analyze_project(
     config_path: Option<PathBuf>,
     output_path: PathBuf,
     skip_llm: bool,
+    debug_llm: bool,
     _format: Option<ReportFormat>,
 ) -> anyhow::Result<()> {
     println!("🚀 Starting Project Examer Analysis");
@@ -97,9 +102,17 @@ async fn analyze_project(
         println!("⚡ Skipping LLM analysis (local-only mode)");
         config.llm.provider = project_examer::config::LLMProvider::OpenAI; // Will be unused
     }
+    
+    if debug_llm {
+        println!("🔍 LLM debug mode enabled - will show detailed request/response information");
+    }
+
+    // Save LLM configuration before moving config
+    let llm_provider = config.llm.provider.clone();
+    let llm_model = config.llm.model.clone();
 
     // Initialize analyzer
-    let mut analyzer = Analyzer::new(config)?;
+    let mut analyzer = Analyzer::new(config, debug_llm)?;
     
     // Run analysis
     let analysis = analyzer.analyze_project(skip_llm).await?;
@@ -112,7 +125,12 @@ async fn analyze_project(
     // Generate reports
     println!("\n📊 Generating reports...");
     let reporter = Reporter::new();
-    let report = reporter.generate_report(&analysis, duration.as_millis());
+    let provider_str = match llm_provider {
+        LLMProvider::OpenAI => "OpenAI",
+        LLMProvider::Ollama => "Ollama", 
+        LLMProvider::Anthropic => "Anthropic",
+    };
+    let report = reporter.generate_report(&analysis, duration.as_millis(), provider_str, &llm_model);
     let exported_files = reporter.export_report(&report, &output_path)?;
     
     println!("\n✅ Analysis completed in {:.2}s", duration.as_secs_f64());
