@@ -205,6 +205,27 @@ impl Analyzer {
         }
     }
 
+    fn safe_truncate<'a>(&self, s: &'a str, max_chars: usize) -> &'a str {
+        if s.chars().count() <= max_chars {
+            return s;
+        }
+        
+        let mut end_idx = 0;
+        for (i, (idx, _)) in s.char_indices().enumerate() {
+            if i >= max_chars {
+                break;
+            }
+            end_idx = idx;
+        }
+        
+        // Find the next character boundary
+        if let Some((next_idx, _)) = s.char_indices().nth(max_chars) {
+            &s[..next_idx]
+        } else {
+            &s[..end_idx + s.chars().nth(max_chars.saturating_sub(1)).map_or(1, |c| c.len_utf8())]
+        }
+    }
+
     fn extract_documentation_content(&self, files: &[FileInfo]) -> Vec<DocumentationContext> {
         let mut documentation = Vec::new();
         
@@ -216,8 +237,9 @@ impl Analyzer {
                 if is_documentation {
                     match fs::read_to_string(&file.path) {
                         Ok(content) => {
-                            let summary = if content.len() > 500 {
-                                format!("{}... ({} characters total)", &content[..500], content.len())
+                            let summary = if content.chars().count() > 500 {
+                                format!("{}... ({} characters total)", 
+                                    self.safe_truncate(&content, 500), content.chars().count())
                             } else {
                                 content.clone()
                             };
@@ -225,10 +247,15 @@ impl Analyzer {
                             documentation.push(DocumentationContext {
                                 path: file.path.to_string_lossy().to_string(),
                                 file_type: language.clone(),
-                                content: if content.len() > 8000 {
+                                content: if content.chars().count() > 8000 {
                                     // Truncate very long files but keep first and last parts
+                                    let start_part = self.safe_truncate(&content, 4000);
+                                    let total_chars = content.chars().count();
+                                    let end_start = total_chars.saturating_sub(2000);
+                                    let end_part: String = content.chars().skip(end_start).collect();
+                                    
                                     format!("{}...\n\n[FILE TRUNCATED - {} total characters]\n\n...{}", 
-                                        &content[..4000], content.len(), &content[content.len().saturating_sub(2000)..])
+                                        start_part, total_chars, end_part)
                                 } else {
                                     content
                                 },
